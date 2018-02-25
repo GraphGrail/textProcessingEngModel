@@ -38,9 +38,10 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         
         
         
-        self.__wordPattern = "^[a-z]+-?[a-z]+\'t$"
+        self.__wordPattern = "^[a-z]+-?[a-z]+(\'t)?$"
         
     # return a list of words 
+    # NOTE: normalizing not working
     def prepareDocument(self, doc, normalize = True, fixMisspellings = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
         tokens = self.__tokenizer.tokenize(doc)
         
@@ -93,70 +94,42 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         
     # return word list without unsignificant sentence parts, named entities and words which is in stoplist
     def handleCorrectedWordList(self, wordList, normalize = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
+        
+        if self.stoplist is not None:
+            i = len(wordList) - 1
+            while i >= 0:
+                if wordList[i] in self.stoplist:
+                    del wordList[i]
+                i -= 1
+                
+        # if insignificant words and named entities should not be removed then return wordList
+        if removeUnsignificantSentenceParts == False and removeNamedEntities == False:
+            return wordList
+        
         resWordList = []
         
-        # if we should remove some words first we need to find out their POS tags
-        if normalize == True or removeUnsignificantSentenceParts == True or removeNamedEntities == True:
-            if normalize == False:
-                wordTags = [None] * len(wordList)
-                i = 0
-                while i < len(wordList):
-                    wordTags[i] = self.__morph.tag(wordList[i])[0]
-                    i += 1
-
-                # remove unsignificant sentence parts if needed
-                if removeUnsignificantSentenceParts == True:
-                    i = len(wordList)
-                    while i >= 0:
-                        if self._isSignificantSentencePartTag(wordTags[i]) == True:
-                            del wordList[i]
-                            del wordTags[i]
-                        i -= 1
-
-                # remove named entities if needed
-                if removeNamedEntities == True:
-                    i = len(wordList)
-                    while i >= 0:
-                        if self._isNamedEntitieTag(wordTags[i]) == True:
-                            del wordList[i]
-                            del wordTags[i]
-                        i -= 1
-            else:
-                wordParse = [None] * len(wordList)
-                i = 0
-                while i < len(wordList):
-                    wordParse[i] = self.__morph.parse(wordList[i])[0]
-                    i += 1
-
-                # remove unsignificant sentence parts if needed
-                if removeUnsignificantSentenceParts == True:
-                    i = len(wordList)
-                    while i >= 0:
-                        if self._isSignificantSentencePartTag(wordParse[i].tag) == True:
-                            del wordList[i]
-                            del wordParse[i]
-                        i -= 1
-
-                # remove named entities if needed
-                if removeNamedEntities == True:
-                    i = len(wordList)
-                    while i >= 0:
-                        if self._isNamedEntitieTag(wordTags[i].tag) == True:
-                            del wordList[i]
-                            del wordParse[i]
-                        i -= 1
-                i = 0
-                while i < len(wordList):
-                    wordList[i] = wordParse[i].normal_form
-                
-                
-        if stoplist is not None:
-            for word in wordList:
-                if word.lower() not in self.__stoplist:
-                    resWordList.append(word)
+        parsedText = Text(" ".join(wordList))
+        
+        # significant_POS is sentece parts that we want to keep 
+        significant_POS = None
+        
+        if removeUnsignificantSentenceParts == True:
+            significant_POS = self.__significantSentenceParts
         else:
-            resWordList = wordList
+            significant_POS = self.__wordTags
             
+        if removeNamedEntities == True:
+            # proper noun is not significant if we want to remove named entities
+            significant_POS = significant_POS.difference("PROPN")
+            
+        try:
+            wordTags = parsedText.pos_tags
+            for t in wordTags:
+                if t[1] in significant_POS:
+                    resWordList.append(t[0])
+        except:
+            resWordList = wordList
+        
         return resWordList
     
     def _findOutWhichTokenIsWord(self, tokens):
@@ -188,21 +161,8 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         if len(res) == 0:
             return None
         return res[0]
-    def wordIsNamedEntitie(self, word):
-        if self.wordIsCorrect(word) == False:
-            return False
-        tag = self.__morph.tag(word)[0]
-        return self._isNamedEntitieTag(tag)
     def wordIsCorrect(self, word):
-        return self.__languageDict.check(word.lower()) or self.__languageDict.check(word.title()) # TODO: after creation of appropriate anchane dict remove self.__languageDict.check(word.title())
-    def _isNamedEntitieTag(self, tag):
-        namedEntitiesTags = ["Name", "Surn", "Patr", "Geox", "Orgn", "Trad"]
-        for entitieTag in namedEntitiesTags:
-            if entitieTag in tag:
-                return True
-        return False
-    def _isSignificantSentencePartTag(self, tag):
-        return tag.POS in self.__significantSentenceParts
+        return self.__languageDict.check(word.lower()) or self.__languageDict.check(word.title()) # TODO: after creation of appropriate enchant dict remove self.__languageDict.check(word.title())
             
     # getters and setters
             
@@ -221,7 +181,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
     def save(self, destinationFolder):
         SaveAndLoadMechanismForInheritedClasses.save(destinationFolder)
         with open(destinationFolder + "/state.json", "w") as outputFile:
-            state = json.dumps([list(self.__significantSentenceParts)], separators=(',',':'))
+            state = json.dumps([list(self.__significantSentenceParts), list(self.__stoplist)], separators=(',',':'))
             outputFile.write(state)
             outputFile.close()
         
@@ -231,6 +191,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         with open(destinationFolder + "/state.json", "r") as inputFile:
             state = json.load(inputFile)
             obj.__significantSentenceParts = set(state[0])
+            obj.__stoplist = set(state[1])
         return obj
     
     # class fields
