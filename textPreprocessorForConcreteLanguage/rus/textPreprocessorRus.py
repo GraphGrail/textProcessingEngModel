@@ -86,29 +86,45 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
     def handleCorrectedWordList(self, wordList, normalize = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
         resWordList = []
         
-        # if we should remove some words first we need to find out their POS tags
-        if removeUnsignificantSentenceParts == True or removeNamedEntities == True:
+        wordParses = None
+        wordTags = None
+        
+        # normilize words if needed
+        if normalize == True:
+            wordParses = [None] * len(wordList)
             wordTags = [None] * len(wordList)
             i = 0
             while i < len(wordList):
+                wordParses[i] = self.__morph.parse(wordList[i])[0]
+                wordTags[i] = wordParses[i].tag
+                wordList[i] = wordParses[i].normal_form
+                i += 1
+        
+        # if we should remove some words first we need to find out their POS tags
+        elif removeUnsignificantSentenceParts == True or removeNamedEntities == True:
+            wordTags = [None] * len(wordList)
+            i = 0
+            while i < len(wordList):
+                wordTags[i] = self.__morph.tag(wordList[i])[0]
+                i += 1
 
-                # remove unsignificant sentence parts if needed
-                if removeUnsignificantSentenceParts == True:
-                    i = len(wordList)
-                    while i >= 0:
-                        if self._isSignificantSentencePartTag(wordTags[i]) == True:
-                            del wordList[i]
-                            del wordTags[i]
-                        i -= 1
+            # remove unsignificant sentence parts if needed
+            if removeUnsignificantSentenceParts == True:
+                i = len(wordList) - 1
+                while i >= 0:
+                    if self._isSignificantSentencePartTag(wordTags[i]) == False:
+                        del wordList[i]
+                        del wordTags[i]
+                    i -= 1
 
-                # remove named entities if needed
-                if removeNamedEntities == True:
-                    i = len(wordList)
-                    while i >= 0:
-                        if self._isNamedEntitieTag(wordTags[i]) == True:
-                            del wordList[i]
-                            del wordTags[i]
-                        i -= 1
+            # remove named entities if needed
+            if removeNamedEntities == True:
+                i = len(wordList) - 1
+                while i >= 0:
+                    if self._isNamedEntitieTag(wordTags[i]) == True:
+                        del wordList[i]
+                        del wordTags[i]
+                    i -= 1
                 
                 
         if self.__stoplist is not None:
@@ -131,7 +147,7 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
         return isWordList
     
     def _correctMisspellingsInListOfWords(self, tokens, isWordList):
-        tempWordList = []
+        resWordList = []
         i = 0
         while i < len(tokens):
             if isWordList[i] == True:
@@ -139,9 +155,11 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
                     corrected = self.tryToCorrectWord(tokens[i])
                     if corrected is not None:
                         correctedWordList = self.__tokenizer.tokenize(corrected)
-                        tempWordList += correctedWordList
+                        resWordList += correctedWordList
+                else:
+                    resWordList.append(tokens[i])
             i += 1
-        return tempWordList
+        return resWordList
         
     # returns corrected form of word (could be two words in string) if can't correct the word return None
     def tryToCorrectWord(self, word):
