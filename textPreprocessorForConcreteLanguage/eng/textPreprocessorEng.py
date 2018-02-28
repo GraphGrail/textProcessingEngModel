@@ -143,7 +143,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         return isWordList
     
     def _correctMisspellingsInListOfWords(self, tokens, isWordList):
-        tempWordList = []
+        resWordList = []
         i = 0
         while i < len(tokens):
             if isWordList[i] == True:
@@ -151,9 +151,11 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
                     corrected = self.tryToCorrectWord(tokens[i])
                     if corrected is not None:
                         correctedWordList = self.__tokenizer.tokenize(corrected)
-                        tempWordList += correctedWordList
+                        resWordList += correctedWordList
+                else:
+                    resWordList.append(tokens[i])
             i += 1
-        return tempWordList
+        return resWordList
         
     # returns corrected form of word (could be two words in string) if can't correct the word return None
     def tryToCorrectWord(self, word):
