@@ -23,7 +23,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
                                               'PROPN', 
                                               'VERB']))
         
-        self.__wordTags(set(['ADJ', 
+        self.__wordTags = set(['ADJ', 
                              'ADV', 
                              'AUX', 
                              'INTJ', 
@@ -34,7 +34,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
                              'SCONJ', 
                              'ADP', 
                              'DET', 
-                             'NUM']))
+                             'NUM'])
         
         
         
@@ -70,8 +70,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
                                             normalize,
                                             removeUnsignificantSentenceParts, 
                                             fixMisspellings, 
-                                            removeNamedEntities, 
-                                            stoplist))
+                                            removeNamedEntities))
         return res
     
     def prepareWord(self, word, normalize = True, removeUnsignificantSentenceParts = True, fixMisspellings = True, removeNamedEntities = True):
@@ -89,16 +88,16 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         else:
             tempWordList.append(word)
             
-        resWordList = self.handleCorrectedWordList(tempWordList, removeUnsignificantSentenceParts, removeNamedEntities, stoplist)
+        resWordList = self.handleCorrectedWordList(tempWordList, removeUnsignificantSentenceParts, removeNamedEntities)
         return resWordList
         
     # return word list without unsignificant sentence parts, named entities and words which is in stoplist
     def handleCorrectedWordList(self, wordList, normalize = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
         
-        if self.stoplist is not None:
+        if self.__stoplist is not None:
             i = len(wordList) - 1
             while i >= 0:
-                if wordList[i] in self.stoplist:
+                if wordList[i] in self.__stoplist:
                     del wordList[i]
                 i -= 1
                 
@@ -110,7 +109,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         
         parsedText = Text(" ".join(wordList))
         
-        # significant_POS is sentece parts that we want to keep 
+        # significant_POS is sentece parts that we want to keep
         significant_POS = None
         
         if removeUnsignificantSentenceParts == True:
@@ -120,7 +119,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
             
         if removeNamedEntities == True:
             # proper noun is not significant if we want to remove named entities
-            significant_POS = significant_POS.difference("PROPN")
+            significant_POS = significant_POS.difference({"PROPN"})
             
         try:
             wordTags = parsedText.pos_tags

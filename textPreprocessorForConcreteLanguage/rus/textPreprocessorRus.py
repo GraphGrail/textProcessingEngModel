@@ -101,12 +101,13 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
                 i += 1
         
         # if we should remove some words first we need to find out their POS tags
-        elif removeUnsignificantSentenceParts == True or removeNamedEntities == True:
-            wordTags = [None] * len(wordList)
-            i = 0
-            while i < len(wordList):
-                wordTags[i] = self.__morph.tag(wordList[i])[0]
-                i += 1
+        if removeUnsignificantSentenceParts == True or removeNamedEntities == True:
+            if wordTags == None:
+                wordTags = [None] * len(wordList)
+                i = 0
+                while i < len(wordList):
+                    wordTags[i] = self.__morph.tag(wordList[i])[0]
+                    i += 1
 
             # remove unsignificant sentence parts if needed
             if removeUnsignificantSentenceParts == True:
@@ -125,7 +126,6 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
                         del wordList[i]
                         del wordTags[i]
                     i -= 1
-                
                 
         if self.__stoplist is not None:
             for word in wordList:
