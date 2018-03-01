@@ -55,13 +55,54 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
         return resWordList
         
     def prepareSequenceOfDocuments(self, docSeq, normalize = True, removeUnsignificantSentenceParts = True, fixMisspellings = True, removeNamedEntities = True):
-        res = []
-        for doc in docSeq:
-            res.append(self.prepareDocument(doc, 
-                                            normalize,
-                                            removeUnsignificantSentenceParts, 
-                                            fixMisspellings, 
-                                            removeNamedEntities))
+        
+        res = [None] * len(docSeq)
+        
+        curPos = 0
+        curPosMutex = threading.Lock()
+        
+        numberOfCores = 4
+        try:
+            numberOfCores = psutil.cpu_count(logical=False)
+        except:
+            pass
+        
+        #dataPieceLength = len(docSeq) // numberOfCores
+        dataPieceLength = 100
+        
+        def prepareDocumentsInOneThread():
+            while True:
+                curPosMutex.acquire()
+                beginIndex = curPos
+                curPos += dataPieceLength
+                if self.testMode == True:
+                    print("Current position of parsed document: " + str(curPos))
+                curPosMutex.release()
+                
+                if beginIndex >= len(docSeq):
+                    break
+                
+                endIndex = beginIndex + dataPieceLength
+                if endIndex > len(docSeq):
+                    endIndex = len(docSeq)
+                
+                i = beginIndex
+                while i < endIndex:
+                    res[i] = self.prepareDocument(docSeq[i], 
+                                                    normalize,
+                                                    removeUnsignificantSentenceParts, 
+                                                    fixMisspellings, 
+                                                    removeNamedEntities))
+                    i += 1
+            
+        threadList = [threading.Thread(target=prepareDocumentsInOneThread, args=())] * numberOfCores
+        
+        for thr in threadList:
+            thr.start()
+        
+        for thr in threadList:
+            thr.join()
+
         return res
     
     def prepareWord(self, word, normalize = True, removeUnsignificantSentenceParts = True, fixMisspellings = True, removeNamedEntities = True):

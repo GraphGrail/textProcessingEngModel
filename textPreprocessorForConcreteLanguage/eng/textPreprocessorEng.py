@@ -1,19 +1,22 @@
 
 # coding: utf-8
 
-from nltk.tokenize import TweetTokenizer
-from polyglot.text import Text
+import spacy
 import re
 import json
 import enchant
+import threading
+
+import psutil
 
 from .saveAndLoadMechanismForInheritedClasses import SaveAndLoadMechanismForInheritedClasses
 
 class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
     def __init__(self):
-        self.__languageDict = enchant.Dict("en_EN")
+        #self.__languageDict = enchant.Dict("en_EN")
+        self.__languageDict = enchant.DictWithPWL("en_EN", "google_numberOfWords_737236.txt")
         
-        self.__tokenizer = TweetTokenizer()
+        self.__nlp = spacy.load('en')
         
         self.setSignificantSentenceParts(set(['ADJ', 
                                               'ADV', 
@@ -31,7 +34,8 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
                              'PROPN', 
                              'VERB', 
                              'CONJ', 
-                             'SCONJ', 
+                             'SCONJ',
+                             'CCONJ', 
                              'ADP', 
                              'DET', 
                              'NUM'])
@@ -41,73 +45,83 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         self.__wordPattern = "^[a-z]+-?[a-z]+(\'t)?$"
         
     # return a list of words 
-    # NOTE: normalizing not working
     def prepareDocument(self, doc, normalize = True, fixMisspellings = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
-        tokens = self.__tokenizer.tokenize(doc)
-        
-        # search for positions where words is placed
-        isWordList = self._findOutWhichTokenIsWord(tokens) # returns list of booleans
+        parsedDoc = self.__nlp(doc)
             
         # correct words in tokens and write them to tempWordList list 
         # if function fixMisspellings is deactivated just write words from tokens list to tempWordList list
-        tempWordList = []
+        tempTokenList = []
         if fixMisspellings == True:
-            tempWordList = self._correctMisspellingsInListOfWords(tokens, isWordList)
+            tempTokenList = self._correctMisspellingsInListOfWords(parsedDoc)
         else:
-            i = 0
-            while i < len(tokens):
-                if isWordList[i] == True:
-                    tempWordList.append(tokens[i])
-                i += 1
+            for token in parsedDoc:
+                if self._tokenIsWord(token):
+                    tempTokenList.append(token)
             
-        resWordList = self.handleCorrectedWordList(tempWordList, normalize, removeUnsignificantSentenceParts, removeNamedEntities)
+        resWordList = self.handleCorrectedWordList(tempTokenList, normalize, removeUnsignificantSentenceParts, removeNamedEntities)
         return resWordList
         
     def prepareSequenceOfDocuments(self, docSeq, normalize = True, removeUnsignificantSentenceParts = True, fixMisspellings = True, removeNamedEntities = True):
-        res = []
-        for doc in docSeq:
-            res.append(self.prepareDocument(doc, 
-                                            normalize,
-                                            removeUnsignificantSentenceParts, 
-                                            fixMisspellings, 
-                                            removeNamedEntities))
+        
+        res = [None] * len(docSeq)
+        
+        curPos = 0
+        curPosMutex = threading.Lock()
+        
+        numberOfCores = 4
+        try:
+            numberOfCores = psutil.cpu_count(logical=False)
+        except:
+            pass
+        
+        dataPieceLength = 10
+        
+        def prepareDocumentsInOneThread():
+            while True:
+                curPosMutex.acquire()
+                beginIndex = curPos
+                curPos += dataPieceLength
+                if self.testMode == True:
+                    print("Current position of parsed document: " + str(curPos))
+                curPosMutex.release()
+                
+                if beginIndex >= len(docSeq):
+                    break
+                
+                endIndex = beginIndex + dataPieceLength
+                if endIndex > len(docSeq):
+                    endIndex = len(docSeq)
+                
+                i = beginIndex
+                while i < endIndex:
+                    res[i] = self.prepareDocument(docSeq[i], 
+                                                    normalize,
+                                                    removeUnsignificantSentenceParts, 
+                                                    fixMisspellings, 
+                                                    removeNamedEntities))
+                    i += 1
+            
+        threadList = [threading.Thread(target=prepareDocumentsInOneThread, args=())] * numberOfCores
+        
+        for thr in threadList:
+            thr.start()
+        
+        for thr in threadList:
+            thr.join()
+
         return res
     
     def prepareWord(self, word, normalize = True, removeUnsignificantSentenceParts = True, fixMisspellings = True, removeNamedEntities = True):
-        resWordList = []
-        
-        # correct words in tokens and write them to tempWordList list 
-        # if function fixMisspellings is deactivated just write words from tokens list to tempWordList list
-        tempWordList = []
-        if fixMisspellings == True:
-            if self.wordIsCorrect(word) == False:
-                corrected = self.tryToCorrectWord(word)
-                if corrected is not None:
-                    correctedWordList = self.__tokenizer.tokenize(corrected)
-                    tempWordList += correctedWordList
-        else:
-            tempWordList.append(word)
-            
-        resWordList = self.handleCorrectedWordList(tempWordList, removeUnsignificantSentenceParts, removeNamedEntities)
-        return resWordList
+        return prepareDocument(word, normalize, removeUnsignificantSentenceParts, fixMisspellings, removeNamedEntities)
         
     # return word list without unsignificant sentence parts, named entities and words which is in stoplist
-    def handleCorrectedWordList(self, wordList, normalize = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
-        
-        if self.__stoplist is not None:
-            i = len(wordList) - 1
-            while i >= 0:
-                if wordList[i] in self.__stoplist:
-                    del wordList[i]
-                i -= 1
+    def handleCorrectedWordList(self, tokenList, normalize = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
                 
         # if insignificant words and named entities should not be removed then return wordList
-        if removeUnsignificantSentenceParts == False and removeNamedEntities == False:
+        if normalize == False and removeUnsignificantSentenceParts == False and removeNamedEntities == False:
             return wordList
         
         resWordList = []
-        
-        parsedText = Text(" ".join(wordList))
         
         # significant_POS is sentece parts that we want to keep
         significant_POS = None
@@ -121,13 +135,19 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
             # proper noun is not significant if we want to remove named entities
             significant_POS = significant_POS.difference({"PROPN"})
             
-        try:
-            wordTags = parsedText.pos_tags
-            for t in wordTags:
-                if t[1] in significant_POS:
-                    resWordList.append(t[0])
-        except:
-            resWordList = wordList
+        for token in tokenList:
+            if token.pos_ in significant_POS:
+                if normalize == True:
+                    resWordList.append(token.lemma_)
+                else:
+                    resWordList.append(token.text)
+                    
+        if self.__stoplist is not None:
+            i = len(resWordList) - 1
+            while i >= 0:
+                if resWordList[i] in self.__stoplist:
+                    del resWordList[i]
+                i -= 1
         
         return resWordList
     
@@ -141,20 +161,25 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
             i += 1
         return isWordList
     
-    def _correctMisspellingsInListOfWords(self, tokens, isWordList):
-        resWordList = []
-        i = 0
-        while i < len(tokens):
-            if isWordList[i] == True:
-                if self.wordIsCorrect(tokens[i]) == False:
-                    corrected = self.tryToCorrectWord(tokens[i])
+    def _tokenIsWord(self, tokenText):
+        pattern = re.compile(self.__wordPattern)
+        if pattern.match(tokenText.lower()):
+            return True
+        return False
+    
+    def _correctMisspellingsInListOfWords(self, parsedDoc):
+        res = []
+        for token in parsedDoc:
+            if self._tokenIsWord(token.text):
+                if token.pos_ != "PROPN" and self.wordIsCorrect(token.text) == False:
+                    corrected = self.tryToCorrectWord(token.text)
                     if corrected is not None:
-                        correctedWordList = self.__tokenizer.tokenize(corrected)
-                        resWordList += correctedWordList
+                        parsedCollocation = self.__nlp(corrected)
+                        for correctedWordToken in parsedCollocation:
+                            res.append(correctedWordToken)
                 else:
-                    resWordList.append(tokens[i])
-            i += 1
-        return resWordList
+                    res.append(token)
+        return res
         
     # returns corrected form of word (could be two words in string) if can't correct the word return None
     def tryToCorrectWord(self, word):
@@ -199,7 +224,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
     
     __languageDict = None
     
-    __tokenizer = None
+    __nlp = None
     
     __significantSentenceParts = None
     __stoplist = None
