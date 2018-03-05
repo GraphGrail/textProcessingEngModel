@@ -9,7 +9,21 @@ import json
 import enchant
 import pymorphy2
 
-from .saveAndLoadMechanismForInheritedClasses import SaveAndLoadMechanismForInheritedClasses
+import os
+
+# class to provide saving and loading mechanism for classes inherited from base class
+class SaveAndLoadMechanismForInheritedClasses:
+    def save(self, destinationFolder):
+        if os.path.isdir(destinationFolder) == False:
+            os.mkdir(destinationFolder)
+        with open(destinationFolder + "/realClassName.txt", "w") as outputFile:
+            outputFile.write(self.__class__.__name__)
+    @staticmethod
+    def load(destinationFolder):
+        with open(destinationFolder + "/realClassName.txt", "r") as inputFile:
+            childClassName = inputFile.readline()
+            childClass = eval(childClassName)
+            return childClass.load(destinationFolder)
 
 # interface for word convertion (word -> vector) class
 class WordToVecConverter(SaveAndLoadMechanismForInheritedClasses):
@@ -24,7 +38,6 @@ class WordToVecConverter(SaveAndLoadMechanismForInheritedClasses):
 class WordToVecConverterOneHotEncoder(WordToVecConverter):
     def __init__(self):      
         self.__wordIdentificators = dict()
-        self.__vocabularyLength = 0
     def getWordVectorSize(self):
         return 1
     def fit(self, listOfWords, minFrequency=None, maxFrequency=None):
@@ -35,58 +48,56 @@ class WordToVecConverterOneHotEncoder(WordToVecConverter):
                 wordFrequencies[word] += 1
             else:
                 wordFrequencies[word] = 1
-                
+            
+        wordsToRemove = set()
+        
         if minFrequency is not None:
             keys = wordFrequencies.keys()
-            wordsToRemove = []
             for key in keys:
                 if wordFrequencies[key] < minFrequency:
-                    wordsToRemove.append(key)
-                    #del wordFrequencies[key]
-            for key in wordsToRemove:
-                del wordFrequencies[key]
+                    wordsToRemove.add(key)
                     
         if maxFrequency is not None:
             keys = wordFrequencies.keys()
             for key in keys:
                 if wordFrequencies[key] > maxFrequency:
-                    del wordFrequencies[key]
+                    wordsToRemove.add(key)
+                    
+        for key in wordsToRemove:
+                del wordFrequencies[key]
                     
         keys = wordFrequencies.keys()
         self.__wordIdentificators = dict()
-        self.__vocabularyLength = 0
+        maxIndex = 0
         for key in keys:
-            self.__wordIdentificators[key] = self.__vocabularyLength + 1
-            self.__vocabularyLength += 1
+            self.__wordIdentificators[key] = maxIndex + 1
+            maxIndex += 1
                     
     def convert(self, word, defaultResult = None):
-        if word in self.__wordToId:
-            return self.__wordToId[word]
+        if word in self.__wordIdentificators:
+            return self.__wordIdentificators[word]
         else:
             return defaultResult
     def getWordIdentificators(self):
         return self.__wordIdentificators
     def getVocabularyLength(self):
         return len(self.__wordIdentificators)
-    def save(self, destinationFile):
-        SaveAndLoadMechanismForInheritedClasses.save(destinationFolder)
-        with open(destinationFile, "w") as outputFile:
-            state = json.dumps([self.__wordIdentificators, self.__vocabularyLength], separators=(',',':'))
-            outputFile.write(state)
-            outputFile.close()
+    def save(self, destinationFolder):
+        SaveAndLoadMechanismForInheritedClasses.save(self, destinationFolder)
+        wordIdentificatorsFilename = os.path.join(destinationFolder, "wordIdentificators.json")
+        with open(wordIdentificatorsFilename, "w") as fp:
+            json.dump(self.__wordIdentificators, fp)
     @staticmethod
     def load(destinationFolder):
         obj = WordToVecConverterOneHotEncoder()
-        with open(destinationFile, "r") as inputFile:
-            state = json.load(inputFile)
-            obj.__wordIdentificators = state[0]
-            obj.__vocabularyLength = state[1]
+        wordIdentificatorsFilename = os.path.join(destinationFolder, "wordIdentificators.json")
+        with open(wordIdentificatorsFilename, "r") as fp:
+            obj.__wordIdentificators = json.load(fp)
         return obj
     @staticmethod
     def getDtype():
         return np.int32
     __wordIdentificators = None
-    __vocabularyLength = None
 
 
 class WordToVecConverterKeyedVectorsBased(WordToVecConverter):
@@ -101,11 +112,11 @@ class WordToVecConverterKeyedVectorsBased(WordToVecConverter):
     def setModel(self, model):
         self.__model = model
     def save(self, destinationFolder):
-        SaveAndLoadMechanismForInheritedClasses.save(destinationFolder)
+        SaveAndLoadMechanismForInheritedClasses.save(self, destinationFolder)
         self.__model.save(destinationFolder + "/model.vec")
     @staticmethod
     def load(destinationFolder):
-        obj = WordToVecConverterProximityBased()
+        obj = WordToVecConverterKeyedVectorsBased()
         obj.__model = gensim.models.KeyedVectors.load(destinationFolder + "/model.vec")
         return obj
     @staticmethod

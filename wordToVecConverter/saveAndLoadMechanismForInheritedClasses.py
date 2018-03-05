@@ -1,6 +1,10 @@
+import os
+
 # class to provide saving and loading mechanism for classes inherited from base class
 class SaveAndLoadMechanismForInheritedClasses:
     def save(self, destinationFolder):
+        if os.path.isdir(destinationFolder) == False:
+            os.mkdir(destinationFolder)
         with open(destinationFolder + "/realClassName.txt", "w") as outputFile:
             outputFile.write(self.__class__.__name__)
     @staticmethod
