@@ -4,6 +4,7 @@
 # In[ ]:
 
 from nltk.tokenize import TweetTokenizer
+from nltk.corpus import stopwords
 import pymorphy2
 import re
 import json

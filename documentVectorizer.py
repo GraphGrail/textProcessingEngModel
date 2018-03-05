@@ -4,19 +4,23 @@
 from polyglot.detect import Detector
 
 from pystardict import Dictionary
-from offlineWordTranslator.offlineWordTranslator import OfflineWordTranslatorForWiktionary
+from .offlineWordTranslator.offlineWordTranslator import OfflineWordTranslatorForWiktionary
 
-from textPreprocessorForConcreteLanguage.eng.textPreprocessorEng import TextPreprocessorEng
-from textPreprocessorForConcreteLanguage.rus.textPreprocessorRus import TextPreprocessorRus
+from .textPreprocessorForConcreteLanguage.eng.textPreprocessorEng import TextPreprocessorEng
+from .textPreprocessorForConcreteLanguage.rus.textPreprocessorRus import TextPreprocessorRus
 
-from onlineMultilanguageTranslator.onlineMultilanguageTranslator import OnlineMultilanguageTranslator
+from .onlineMultilanguageTranslator.onlineMultilanguageTranslator import OnlineMultilanguageTranslator
+
+import os
 
 class DocumentVectorizer:
     def __init__(self):
         langSys = {"preprocessor" : TextPreprocessorEng()}
         self.__languageSystems = {"English" : langSys}
         
-        offlineWordTranslator = OfflineWordTranslatorForWiktionary(Dictionary("./offlineWordTranslator/dictionaries/Wiktionary Russian-English/Wiktionary Russian-English"))
+        # pathToDictionary = os.path.join(os.path.dirname(os.path.abspath(__file__)), "offlineWordTranslator", "dictionaries", "Wiktionary Russian-English", "Wiktionary Russian-English")
+        pathToDictionary = os.path.join(".", "textProcessingEngModel", "offlineWordTranslator", "dictionaries", "Wiktionary Russian-English", "Wiktionary Russian-English") # should be removed
+        offlineWordTranslator = OfflineWordTranslatorForWiktionary(Dictionary(pathToDictionary))
         langSys = {"preprocessor" : TextPreprocessorRus(), "offlineWordTranslator" : offlineWordTranslator}
         self.__languageSystems["Russian"] = langSys
         
@@ -25,7 +29,7 @@ class DocumentVectorizer:
     def vectorizeDocument(self, doc, lang = None, useOfflineTranslation = True, useOnlineTranslation = False):
         translatedWords = None
         
-        if tryToUseOnlineTranslation == True:
+        if useOnlineTranslation == True:
             translatedWords = self._onlineWordSeparationAndTranslation(doc, maxNumberOfAttempts = 4)
             
         if translatedWords == None:
@@ -46,16 +50,19 @@ class DocumentVectorizer:
         
     # setters and getters
     
-    def setWordToVecConverter(self, model):
-        self.__wordToConverter = model
+    def setWordToVecConverter(self, converter):
+        self.__wordToConverter = converter
     def getWordToVecConverter(self):
         return self.__wordToConverter
     
     def _offlineWordSeparationAndTranslation(self, doc, lang):
         # if lang == None detect language of doc automatically
         if lang is None:
-            d = Detector(doc)
-            lang = d.language.name
+            try:
+                d = Detector(doc)
+                lang = d.language.name
+            except:
+                lang = "English"
         
         # if language is supported then preprocess, translate and vectorize words
         if lang in self.__languageSystems:
