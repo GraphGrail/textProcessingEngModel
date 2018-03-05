@@ -4,6 +4,8 @@
 from googletrans import Translator
 import time
 
+import json
+
 
 class OnlineMultilanguageTranslator:
     def __init__(self):
@@ -13,7 +15,7 @@ class OnlineMultilanguageTranslator:
         self.testMode = False
     def translate(self, document, dest="en", src="auto", maxNumberOfAttempts=None):
         stringtoTranslate = ""
-        if len(documents[i]) <= self.__maxStringLength:
+        if len(document) <= self.__maxStringLength:
             stringtoTranslate = document
         else:
             stringtoTranslate = document[:self.__maxStringLength]
@@ -24,7 +26,7 @@ class OnlineMultilanguageTranslator:
                 translation = self.__translator.translate(stringtoTranslate, dest=dest, src=src)
                 res = translation.text
                 return res
-            except JSONDecodeError:
+            except json.decoder.JSONDecodeError:
                 errorNumber += 1
                 if self.testMode == True:
                     print("Error number: " + errorNumber)

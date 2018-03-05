@@ -29,6 +29,8 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
                                               'ADVB']))
         self.__morph = pymorphy2.MorphAnalyzer()
         
+        self.setStopList(stopwords.words('russian'))
+        
         self.__wordPattern = "^[а-я]+-?[а-я]+$"
         
     # return a list of words 
@@ -92,7 +94,7 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
                                                     normalize,
                                                     removeUnsignificantSentenceParts, 
                                                     fixMisspellings, 
-                                                    removeNamedEntities))
+                                                    removeNamedEntities)
                     i += 1
             
         threadList = [threading.Thread(target=prepareDocumentsInOneThread, args=())] * numberOfCores
@@ -239,7 +241,7 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
         
     def getStopList(self):
         return self.__stoplist
-    def setStopList(self, stopList):
+    def setStopList(self, stoplist):
         self.__stoplist = stoplist
         
     # save and load functions

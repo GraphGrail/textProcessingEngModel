@@ -7,6 +7,8 @@ import json
 import enchant
 import threading
 
+from nltk.corpus import stopwords
+
 import psutil
 
 from .saveAndLoadMechanismForInheritedClasses import SaveAndLoadMechanismForInheritedClasses
@@ -40,9 +42,11 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
                              'DET', 
                              'NUM'])
         
+        self.setStopList(stopwords.words('english'))
         
         
-        self.__wordPattern = "^[a-z]+-?[a-z]+(\'t)?$"
+        
+        self.__wordPattern = "[a-z]+-?[a-z]+|(n\'t)|\'s"
         
     # return a list of words 
     def prepareDocument(self, doc, normalize = True, fixMisspellings = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
@@ -81,9 +85,10 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
                 curPosMutex.acquire()
                 beginIndex = curPos
                 curPos += dataPieceLength
-                if self.testMode == True:
-                    print("Current position of parsed document: " + str(curPos))
                 curPosMutex.release()
+                
+                if self.testMode == True and beginIndex % 200 == 0:
+                    print("Current position of parsed document: " + str(beginIndex))
                 
                 if beginIndex >= len(docSeq):
                     break
@@ -98,10 +103,12 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
                                                     normalize,
                                                     removeUnsignificantSentenceParts, 
                                                     fixMisspellings, 
-                                                    removeNamedEntities))
+                                                    removeNamedEntities)
                     i += 1
             
-        threadList = [threading.Thread(target=prepareDocumentsInOneThread, args=())] * numberOfCores
+        threadList = []
+        for r in range(numberOfCores):
+            threadList.append(threading.Thread(target=prepareDocumentsInOneThread, args=()))
         
         for thr in threadList:
             thr.start()
@@ -116,12 +123,13 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         
     # return word list without unsignificant sentence parts, named entities and words which is in stoplist
     def handleCorrectedWordList(self, tokenList, normalize = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
+        resWordList = []
                 
         # if insignificant words and named entities should not be removed then return wordList
         if normalize == False and removeUnsignificantSentenceParts == False and removeNamedEntities == False:
-            return wordList
-        
-        resWordList = []
+            for token in tokenList:
+                resWordList.append(token.text)
+            return resWordList
         
         # significant_POS is sentece parts that we want to keep
         significant_POS = None
@@ -137,10 +145,18 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
             
         for token in tokenList:
             if token.pos_ in significant_POS:
+                tokenText = token.text
+                if tokenText == "'s":
+                    tokenText ="is"
+                elif tokenText == "n't":
+                    tokenText = "not"
                 if normalize == True:
-                    resWordList.append(token.lemma_)
+                    if token.lemma_ == "-PRON-":
+                        resWordList.append(tokenText)
+                    else:
+                        resWordList.append(token.lemma_)
                 else:
-                    resWordList.append(token.text)
+                    resWordList.append(tokenText)
                     
         if self.__stoplist is not None:
             i = len(resWordList) - 1
@@ -161,16 +177,16 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
             i += 1
         return isWordList
     
-    def _tokenIsWord(self, tokenText):
+    def _tokenIsWord(self, token):
         pattern = re.compile(self.__wordPattern)
-        if pattern.match(tokenText.lower()):
+        if pattern.match(token.text.lower()):
             return True
         return False
     
     def _correctMisspellingsInListOfWords(self, parsedDoc):
         res = []
         for token in parsedDoc:
-            if self._tokenIsWord(token.text):
+            if self._tokenIsWord(token):
                 if token.pos_ != "PROPN" and self.wordIsCorrect(token.text) == False:
                     corrected = self.tryToCorrectWord(token.text)
                     if corrected is not None:
@@ -199,7 +215,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         
     def getStopList(self):
         return self.__stoplist
-    def setStopList(self, stopList):
+    def setStopList(self, stoplist):
         self.__stoplist = stoplist
         
     # save and load functions

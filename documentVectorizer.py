@@ -11,7 +11,7 @@ from textPreprocessorForConcreteLanguage.rus.textPreprocessorRus import TextPrep
 
 from onlineMultilanguageTranslator.onlineMultilanguageTranslator import OnlineMultilanguageTranslator
 
-class DocumentVectorizerEngModel:
+class DocumentVectorizer:
     def __init__(self):
         langSys = {"preprocessor" : TextPreprocessorEng()}
         self.__languageSystems = {"English" : langSys}
@@ -31,26 +31,25 @@ class DocumentVectorizerEngModel:
         if translatedWords == None:
             if useOfflineTranslation == True:
                 translatedWords = self._offlineWordSeparationAndTranslation(doc, lang)
-            else:
-                translatedWords = self._onlineWordSeparationAndTranslation(doc)
+            elif useOnlineTranslation == True and len(translatedWords) == 0:
+                translatedWords = self._onlineWordSeparationAndTranslation(doc, maxNumberOfAttempts=None)
                 
         if translatedWords == None:
             return None
             
         res = []
         for word in translatedWords:
-            try:
-                res.append(self.__wordToVecEngModel[word])
-            except:
-                pass
+            vector = self.__wordToConverter.convert(word)
+            if vector is not None:
+                res.append(vector)
         return res
         
     # setters and getters
     
-    def setWordToVecEngModel(self, model):
-        self.__wordToVecEngModel = model
-    def getWordToVecEngModel(self):
-        return self.__wordToVecEngModel
+    def setWordToVecConverter(self, model):
+        self.__wordToConverter = model
+    def getWordToVecConverter(self):
+        return self.__wordToConverter
     
     def _offlineWordSeparationAndTranslation(self, doc, lang):
         # if lang == None detect language of doc automatically
@@ -84,7 +83,7 @@ class DocumentVectorizerEngModel:
             res = self.__languageSystems["English"]["preprocessor"].prepareDocument(translation, normalize = False, fixMisspellings = False, removeUnsignificantSentenceParts = True, removeNamedEntities = False)
         return res
         
-    __wordToVecEngModel = None
+    __wordToConverter = None
     __languageSystems = None
     __onlineMultilanguageTranslator = None
 
