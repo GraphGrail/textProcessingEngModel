@@ -18,8 +18,8 @@ class DocumentVectorizer:
         langSys = {"preprocessor" : TextPreprocessorEng()}
         self.__languageSystems = {"English" : langSys}
         
-        # pathToDictionary = os.path.join(os.path.dirname(os.path.abspath(__file__)), "offlineWordTranslator", "dictionaries", "Wiktionary Russian-English", "Wiktionary Russian-English")
-        pathToDictionary = os.path.join(".", "textProcessingEngModel", "offlineWordTranslator", "dictionaries", "Wiktionary Russian-English", "Wiktionary Russian-English") # should be removed
+        pathToDictionary = os.path.join(os.path.dirname(os.path.abspath(__file__)), "offlineWordTranslator", "dictionaries", "Wiktionary Russian-English", "Wiktionary Russian-English")
+        # pathToDictionary = os.path.join(".", "textProcessingEngModel", "offlineWordTranslator", "dictionaries", "Wiktionary Russian-English", "Wiktionary Russian-English") # should be removed
         offlineWordTranslator = OfflineWordTranslatorForWiktionary(Dictionary(pathToDictionary))
         langSys = {"preprocessor" : TextPreprocessorRus(), "offlineWordTranslator" : offlineWordTranslator}
         self.__languageSystems["Russian"] = langSys

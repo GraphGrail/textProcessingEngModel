@@ -11,12 +11,17 @@ from nltk.corpus import stopwords
 
 import psutil
 
+import os
+
 from .saveAndLoadMechanismForInheritedClasses import SaveAndLoadMechanismForInheritedClasses
 
 class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
     def __init__(self):
         #self.__languageDict = enchant.Dict("en_EN")
-        self.__languageDict = enchant.DictWithPWL("en_EN", "google_numberOfWords_737236.txt")
+        
+        pathToWordListFromGoogle = os.path.join(os.path.dirname(os.path.abspath(__file__)), "google_numberOfWords_737236.txt")
+        
+        self.__languageDict = enchant.DictWithPWL("en_EN", pathToWordListFromGoogle)
         
         self.__nlp = spacy.load('en')
         
@@ -46,7 +51,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         
         
         
-        self.__wordPattern = "[a-z]+-?[a-z]+|(n\'t)|\'s"
+        self.__wordPattern = "([a-z]+-)?[a-z]+|n\'t|\'s|\'m|\'ve"
         
     # return a list of words 
     def prepareDocument(self, doc, normalize = True, fixMisspellings = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
@@ -147,9 +152,13 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
             if token.pos_ in significant_POS:
                 tokenText = token.text
                 if tokenText == "'s":
-                    tokenText ="is"
+                    tokenText = "is"
                 elif tokenText == "n't":
                     tokenText = "not"
+                elif tokenText == "'ve":
+                    tokenText = "have"
+                elif tokenText == "'m":
+                    tokenText = "am"
                 if normalize == True:
                     if token.lemma_ == "-PRON-":
                         resWordList.append(tokenText)

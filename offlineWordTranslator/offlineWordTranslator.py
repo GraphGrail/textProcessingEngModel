@@ -8,18 +8,20 @@ class OfflineWordTranslator:
         self.__dictionary = dictionary
     # word should be in lower case
     def translate(self, word):
-        #translationResult = self.__dictionary[word]
         translationResult = self.__dictionary.get(word, d = None)
         if translationResult == None:
             return None
         return self._parseTranslationResult(translationResult)
     
+    def getDictionary(self):
+        return self.__dictionary
+    
     # Result of translation using dictionary could be in unappropriate form (raw string with descriptions).
     # This function returns string (word could be translated to phrase) which is the result of translation.
     def _parseTranslationResult(self, translationResult):
-        pass
+        return translationResult
+    
     __dictionary = None
-
 
 class OfflineWordTranslatorForStarDictQuick(OfflineWordTranslator):
     def _parseTranslationResult(self, translationResult):
@@ -43,5 +45,7 @@ class OfflineWordTranslatorForWiktionary(OfflineWordTranslator):
         translatedWord = re.sub(" $", "",  translatedWord)
         
         return translatedWord
+    
+    
 
 
