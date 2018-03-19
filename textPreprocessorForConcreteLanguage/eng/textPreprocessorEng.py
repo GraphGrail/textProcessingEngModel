@@ -55,15 +55,21 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         
     # return a list of words 
     def prepareDocument(self, doc, normalize = True, fixMisspellings = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
-        parsedDoc = self.__nlp(doc)
-            
+        processedDoc = self.__nlp(doc)
+        return self.prepareProcessedDocument(processedDoc, 
+                                      normalize, 
+                                      fixMisspellings, 
+                                      removeUnsignificantSentenceParts, 
+                                      removeNamedEntities)
+    
+    def prepareProcessedDocument(self, processedDoc, normalize = True, fixMisspellings = True, removeUnsignificantSentenceParts = True, removeNamedEntities = True):
         # correct words in tokens and write them to tempWordList list 
         # if function fixMisspellings is deactivated just write words from tokens list to tempWordList list
         tempTokenList = []
         if fixMisspellings == True:
-            tempTokenList = self._correctMisspellingsInListOfWords(parsedDoc)
+            tempTokenList = self._correctMisspellingsInListOfWords(processedDoc)
         else:
-            for token in parsedDoc:
+            for token in processedDoc:
                 if self._tokenIsWord(token):
                     tempTokenList.append(token)
             
