@@ -83,9 +83,9 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         curPos = 0
         curPosMutex = threading.Lock()
         
-        numberOfCores = 4
+        numberOfThreads = 4
         try:
-            numberOfCores = psutil.cpu_count(logical=False)
+            numberOfThreads = psutil.cpu_count(logical=False)
         except:
             pass
         
@@ -93,6 +93,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         
         def prepareDocumentsInOneThread():
             nonlocal curPos
+            nonlocal curPosMutex
             nonlocal dataPieceLength
             
             nonlocal normalize
@@ -126,7 +127,7 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
                     i += 1
             
         threadList = []
-        for r in range(numberOfCores):
+        for r in range(numberOfThreads):
             threadList.append(threading.Thread(target=prepareDocumentsInOneThread, args=()))
         
         for thr in threadList:

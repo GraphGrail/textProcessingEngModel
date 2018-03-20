@@ -9,6 +9,8 @@ import pymorphy2
 import re
 import json
 import enchant
+import threading
+import psutil
 
 from .saveAndLoadMechanismForInheritedClasses import SaveAndLoadMechanismForInheritedClasses
 
@@ -64,17 +66,17 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
         curPos = 0
         curPosMutex = threading.Lock()
         
-        numberOfCores = 4
+        numberOfThreads = 4
         try:
-            numberOfCores = psutil.cpu_count(logical=False)
+            numberOfThreads = psutil.cpu_count(logical=False)
         except:
             pass
         
-        #dataPieceLength = len(docSeq) // numberOfCores
         dataPieceLength = 10
         
         def prepareDocumentsInOneThread():
             nonlocal curPos
+            nonlocal curPosMutex
             nonlocal dataPieceLength
             
             nonlocal normalize
@@ -106,7 +108,9 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
                                                     removeNamedEntities)
                     i += 1
             
-        threadList = [threading.Thread(target=prepareDocumentsInOneThread, args=())] * numberOfCores
+        threadList = []
+        for r in range(numberOfThreads):
+            threadList.append(threading.Thread(target=prepareDocumentsInOneThread, args=()))
         
         for thr in threadList:
             thr.start()

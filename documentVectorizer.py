@@ -2,6 +2,7 @@
 # coding: utf-8
 
 from polyglot.detect import Detector
+import psutil
 
 from .offlineWordTranslator.offlineWordTranslator import OfflineWordTranslator
 
@@ -53,6 +54,65 @@ class DocumentVectorizer:
             vector = self.__wordToConverter.convert(word)
             if vector is not None:
                 res.append(vector)
+        return res
+    
+    def vectorizeSequenceOfDocuments(self, docSeq, lang = None, useOfflineTranslation = True, useOnlineTranslation = False):
+        res = [None] * len(docSeq)
+        
+        curPos = 0
+        curPosMutex = threading.Lock()
+        
+        numberOfThreads = 4
+        try:
+            numberOfThreads = psutil.cpu_count(logical=False)
+        except:
+            pass
+        
+        dataPieceLength = 10
+        
+        def vectorizeDocumentsInOneThread():
+            nonlocal curPos
+            nonlocal curPosMutex
+            nonlocal dataPieceLength
+            
+            nonlocal docSeq
+            nonlocal lang
+            nonlocal useOfflineTranslation
+            nonlocal useOnlineTranslation
+            
+            while True:
+                curPosMutex.acquire()
+                beginIndex = curPos
+                curPos += dataPieceLength
+                if self.testMode == True:
+                    print("Current position of parsed document: " + str(curPos))
+                curPosMutex.release()
+                
+                if beginIndex >= len(docSeq):
+                    break
+                
+                endIndex = beginIndex + dataPieceLength
+                if endIndex > len(docSeq):
+                    endIndex = len(docSeq)
+                
+                i = beginIndex
+                while i < endIndex:
+                    res[i] = self.vectorizeDocument(docSeq[i], 
+                                                    lang,
+                                                    useOfflineTranslation, 
+                                                    useOnlineTranslation)
+                    i += 1
+            
+        threadList = []
+        for r in range(numberOfThreads):
+            threadList.append(threading.Thread(target=vectorizeDocumentsInOneThread, args=()))
+        
+        for thr in threadList:
+            thr.start()
+        
+        for thr in threadList:
+            thr.join()
+
         return res
         
     # setters and getters
