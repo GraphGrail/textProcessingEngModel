@@ -3,13 +3,14 @@
 
 from polyglot.detect import Detector
 
-from pystardict import Dictionary
-from .offlineWordTranslator.offlineWordTranslator import OfflineWordTranslatorForWiktionary
+from .offlineWordTranslator.offlineWordTranslator import OfflineWordTranslator
 
 from .textPreprocessorForConcreteLanguage.eng.textPreprocessorEng import TextPreprocessorEng
 from .textPreprocessorForConcreteLanguage.rus.textPreprocessorRus import TextPreprocessorRus
 
 from .onlineMultilanguageTranslator.onlineMultilanguageTranslator import OnlineMultilanguageTranslator
+
+import json
 
 import os
 
@@ -18,9 +19,15 @@ class DocumentVectorizer:
         langSys = {"preprocessor" : TextPreprocessorEng()}
         self.__languageSystems = {"English" : langSys}
         
-        pathToDictionary = os.path.join(os.path.dirname(os.path.abspath(__file__)), "offlineWordTranslator", "dictionaries", "Wiktionary Russian-English", "Wiktionary Russian-English")
-        # pathToDictionary = os.path.join(".", "textProcessingEngModel", "offlineWordTranslator", "dictionaries", "Wiktionary Russian-English", "Wiktionary Russian-English") # should be removed
-        offlineWordTranslator = OfflineWordTranslatorForWiktionary(Dictionary(pathToDictionary))
+        pathToDictionary = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
+                                        "offlineWordTranslator", 
+                                        "dictionaries", 
+                                        "custom", 
+                                        "rusToEngExtendedDict.json")
+        offlineWordTranslator = None
+        with open(pathToDictionary, "r") as fp:
+            rusToEngDictionary = json.load(fp)
+            offlineWordTranslator = OfflineWordTranslator(rusToEngDictionary)
         langSys = {"preprocessor" : TextPreprocessorRus(), "offlineWordTranslator" : offlineWordTranslator}
         self.__languageSystems["Russian"] = langSys
         

@@ -71,9 +71,17 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
             pass
         
         #dataPieceLength = len(docSeq) // numberOfCores
-        dataPieceLength = 100
+        dataPieceLength = 10
         
         def prepareDocumentsInOneThread():
+            nonlocal curPos
+            nonlocal dataPieceLength
+            
+            nonlocal normalize
+            nonlocal removeUnsignificantSentenceParts
+            nonlocal fixMisspellings
+            nonlocal removeNamedEntities
+            
             while True:
                 curPosMutex.acquire()
                 beginIndex = curPos

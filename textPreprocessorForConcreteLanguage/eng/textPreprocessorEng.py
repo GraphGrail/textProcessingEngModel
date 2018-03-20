@@ -92,6 +92,14 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
         dataPieceLength = 10
         
         def prepareDocumentsInOneThread():
+            nonlocal curPos
+            nonlocal dataPieceLength
+            
+            nonlocal normalize
+            nonlocal removeUnsignificantSentenceParts
+            nonlocal fixMisspellings
+            nonlocal removeNamedEntities
+            
             while True:
                 curPosMutex.acquire()
                 beginIndex = curPos
@@ -105,11 +113,11 @@ class TextPreprocessorEng(SaveAndLoadMechanismForInheritedClasses):
                     break
                 
                 endIndex = beginIndex + dataPieceLength
-                if endIndex > len(docSeq):
-                    endIndex = len(docSeq)
+                if endIndex >= len(docSeq):
+                    endIndex = len(docSeq) - 1
                 
                 i = beginIndex
-                while i < endIndex:
+                while i <= endIndex:
                     res[i] = self.prepareDocument(docSeq[i], 
                                                     normalize,
                                                     removeUnsignificantSentenceParts, 
