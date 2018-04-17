@@ -33,6 +33,12 @@ class DocumentVectorizer:
         self.__languageSystems["Russian"] = langSys
         
         self.__onlineMultilanguageTranslator = OnlineMultilanguageTranslator()
+        
+        self.__normalize = False
+        self.__fixMisspellings = False
+        self.__removeUnsignificantSentenceParts = True
+        self.__removeNamedEntities = True
+        
     # lang: "Russian", "English"
     def vectorizeDocument(self, doc, lang = None, useOfflineTranslation = True, useOnlineTranslation = False):
         translatedWords = None
@@ -51,7 +57,7 @@ class DocumentVectorizer:
             
         res = []
         for word in translatedWords:
-            vector = self.__wordToConverter.convert(word)
+            vector = self.__wordToVecConverter.convert(word)
             if vector is not None:
                 res.append(vector)
         return res
@@ -115,12 +121,20 @@ class DocumentVectorizer:
 
         return res
         
-    # setters and getters
+    # Setters and getters:
     
     def setWordToVecConverter(self, converter):
-        self.__wordToConverter = converter
+        self.__wordToVecConverter = converter
     def getWordToVecConverter(self):
-        return self.__wordToConverter
+        return self.__wordToVecConverter
+    
+    def setPreprocessingParameters(self, normalize, fixMisspellings, removeUnsignificantSentenceParts, removeNamedEntities):
+        self.__normalize = normalize
+        self.__fixMisspellings = fixMisspellings
+        self.__removeUnsignificantSentenceParts = removeUnsignificantSentenceParts
+        self.__removeNamedEntities = removeNamedEntities
+    
+    # Private functions:
     
     def _offlineWordSeparationAndTranslation(self, doc, lang):
         # if lang == None detect language of doc automatically
@@ -133,19 +147,19 @@ class DocumentVectorizer:
         
         # if language is supported then preprocess, translate and vectorize words
         if lang in self.__languageSystems:
-            wordList = self.__languageSystems[lang]["preprocessor"].prepareDocument(doc)
             # translate words if they are not in English
             if lang != "English":
+                wordList = self.__languageSystems[lang]["preprocessor"].prepareDocument(doc, normalize=True, fixMisspellings=self.__fixMisspellings, removeUnsignificantSentenceParts=self.__removeUnsignificantSentenceParts, removeNamedEntities=self.__removeNamedEntities)
                 translatedWords = []
                 i = 0
                 while i < len(wordList):
                     translation = self.__languageSystems[lang]["offlineWordTranslator"].translate(wordList[i])
                     if translation is not None:
-                        translatedWords += self.__languageSystems["English"]["preprocessor"].prepareDocument(translation, normalize = False, fixMisspellings = False, removeUnsignificantSentenceParts = True, removeNamedEntities = False)
+                        translatedWords += self.__languageSystems["English"]["preprocessor"].prepareDocument(translation, normalize = False, fixMisspellings = False, removeUnsignificantSentenceParts = False, removeNamedEntities = False)
                     i += 1
                 return translatedWords
             else:
-                return wordList
+                return self.__languageSystems[lang]["preprocessor"].prepareDocument(doc, normalize=self.__normalize, fixMisspellings=self.__fixMisspellings, removeUnsignificantSentenceParts=self.__removeUnsignificantSentenceParts, removeNamedEntities=self.__removeNamedEntities)
         else:
             raise ValueError("Unsupported language of document")
             
@@ -156,8 +170,14 @@ class DocumentVectorizer:
         if translation != None:
             res = self.__languageSystems["English"]["preprocessor"].prepareDocument(translation, normalize = False, fixMisspellings = False, removeUnsignificantSentenceParts = True, removeNamedEntities = False)
         return res
+    
+    # Fields:
         
-    __wordToConverter = None
+    __wordToVecConverter = None
     __languageSystems = None
     __onlineMultilanguageTranslator = None
-
+    
+    __normalize = None
+    __fixMisspellings = None
+    __removeUnsignificantSentenceParts = None
+    __removeNamedEntities = None
