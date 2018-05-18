@@ -30,6 +30,8 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
                                               'PRTS', 
                                               'GRND', 
                                               'ADVB']))
+        self.setPronounsRemoving(False)
+        
         self.__morph = pymorphy2.MorphAnalyzer()
         
         self.setStopList(stopwords.words('russian'))
@@ -172,6 +174,9 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
                     if self._isSignificantSentencePartTag(wordTags[i]) == False:
                         del wordList[i]
                         del wordTags[i]
+                    elif self.__pronounsRemoving == True and self._isPronoun(wordTags[i]):
+                        del wordList[i]
+                        del wordTags[i]
                     i -= 1
 
             # remove named entities if needed
@@ -242,6 +247,10 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
             if entitieTag in tag:
                 return True
         return False
+    def _isPronoun(self, tag):
+        if "Apro" in tag:
+            return True
+        return False
     def _isSignificantSentencePartTag(self, tag):
         return tag.POS in self.__significantSentenceParts
             
@@ -251,6 +260,9 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
         return self.__significantSentenceParts
     def setSignificantSentenceParts(self, significant_POS):
         self.__significantSentenceParts = set(significant_POS)
+    
+    def setPronounsRemoving(self, shouldRemove):
+        self.__pronounsRemoving = shouldRemove
         
     def getStopList(self):
         return self.__stoplist
@@ -281,6 +293,7 @@ class TextPreprocessorRus(SaveAndLoadMechanismForInheritedClasses):
     __tokenizer = None
     
     __significantSentenceParts = None
+    __pronounsRemoving = None
     __stoplist = None
     __morph = None
     
